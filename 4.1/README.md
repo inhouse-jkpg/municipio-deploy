@@ -71,9 +71,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@ee0669bd1cc54295c223e0bb666b733df41de1c5
 
-    - uses: helsingborg-stad/municipio-deploy/4.0@master
+    - uses: inhouse-jkpg/municipio-deploy/4.0@master
       with:
         deploy-host: ${{ secrets.DEPLOY_REMOTE_HOST_DOMAIN_SE }}
         deploy-host-path: ${{ secrets.DEPLOY_REMOTE_PORT_DOMAIN_SE }}
