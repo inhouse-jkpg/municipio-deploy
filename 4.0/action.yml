@@ -229,6 +229,10 @@ runs:
       run: php ./build.php --cleanup --no-composer-in-child-packages
       shell: bash
 
+    - name: Restore vendored Modularity from git
+      run: git checkout HEAD -- wp-content/plugins/modularity
+      shell: bash
+
     - name: Cleanup .npmrc
       run: rm ~/.npmrc
       shell: bash
@@ -236,9 +240,19 @@ runs:
     - name: The rsync deployment to www-data user.
       uses: burnett01/rsync-deployments@796cf0d5e4b535745ce49d7429f77cf39e25ef39
       with:
-        switches: -avzrog --delete --backup --backup-dir=${{ inputs.deploy-host-backup-path }}/$GITHUB_SHA --exclude="/config" --exclude config-example --exclude wp-content/uploads --exclude wp-content/plugins/gravityforms --exclude wp-content/plugins/wp-schema-pro --exclude track-assets --exclude wp-content/plugins/volontar-wordpress --exclude wp-content/languages --exclude .htaccess --exclude security.txt --exclude wp-content/mu-plugins/local_* --exclude wp-content/fonts 
+        switches: -avzrog --delete --backup --backup-dir=${{ inputs.deploy-host-backup-path }}/$GITHUB_SHA --exclude="/config" --exclude config-example --exclude wp-content/uploads --exclude wp-content/plugins/gravityforms --exclude wp-content/plugins/wp-schema-pro --exclude track-assets --exclude wp-content/plugins/volontar-wordpress --exclude wp-content/languages --exclude .htaccess --exclude security.txt --exclude wp-content/mu-plugins/local_* --exclude wp-content/fonts --exclude wp-content/plugins/modularity 
         path: .
         remote_path: ${{ inputs.deploy-host-path }}
+        remote_host: ${{ inputs.deploy-host }}
+        remote_user: ${{ inputs.deploy-host-user }}
+        remote_key: ${{ inputs.deploy-host-user-key }}
+        remote_port: ${{ inputs.deploy-port }}
+    - name: Rsync vendored Modularity
+      uses: burnett01/rsync-deployments@796cf0d5e4b535745ce49d7429f77cf39e25ef39
+      with:
+        switches: -avzrog --backup --backup-dir=${{ inputs.deploy-host-backup-path }}/$GITHUB_SHA
+        path: wp-content/plugins/modularity/
+        remote_path: ${{ inputs.deploy-host-path }}/wp-content/plugins/modularity/
         remote_host: ${{ inputs.deploy-host }}
         remote_user: ${{ inputs.deploy-host-user }}
         remote_key: ${{ inputs.deploy-host-user-key }}
