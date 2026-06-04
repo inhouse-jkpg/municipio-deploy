@@ -17,7 +17,7 @@ inputs:
   deploy-host-user:
     description: Username of the rsync deployment.
     required: true
-  deploy-host-user-key: 
+  deploy-host-user-key:
     description: The ssh key of the user deploying through rsync.
     required: true
   deploy-host-web-server-user:
@@ -62,7 +62,7 @@ inputs:
     default: ""
     required: false
   sentry-version:
-    description: The version identifier of the release to track the deploy for. 
+    description: The version identifier of the release to track the deploy for.
     default: ""
     required: false
   sentry-api-key:
@@ -208,12 +208,16 @@ runs:
       run: composer install --prefer-dist --no-progress --no-suggest --optimize-autoloader --classmap-authoritative
       shell: bash
 
+    - name: Restore Modularity from git
+      run: git checkout HEAD -- wp-content/plugins/modularity
+      shell: bash
+
     - name: Write composer versions info file.
       run: composer show >> composer.versions.md
       shell: bash
 
     - name: Inject access token in .npmrc.
-      run: | 
+      run: |
         echo "@helsingborg-stad:registry=https://npm.pkg.github.com/helsingborg-stad" >> ~/.npmrc
         echo "//npm.pkg.github.com/:_authToken=${{ inputs.github-token }}" >> ~/.npmrc
       shell: bash
@@ -225,12 +229,23 @@ runs:
         rm acf.zip
       shell: bash
 
+    - name: Stash vendored Modularity
+      run: |
+        test -f wp-content/plugins/modularity/modularity.php || { echo "Modularity missing before build"; exit 1; }
+        rm -rf "$RUNNER_TEMP/modularity-vendored"
+        cp -a wp-content/plugins/modularity "$RUNNER_TEMP/modularity-vendored"
+      shell: bash
+
     - name: Execute buildscripts in themes and plugins folders.
       run: php ./build.php --cleanup --no-composer-in-child-packages
       shell: bash
 
-    - name: Restore vendored Modularity from git
-      run: git checkout HEAD -- wp-content/plugins/modularity
+    - name: Restore vendored Modularity
+      run: |
+        test -d "$RUNNER_TEMP/modularity-vendored" || { echo "Modularity stash missing"; exit 1; }
+        rm -rf wp-content/plugins/modularity
+        cp -a "$RUNNER_TEMP/modularity-vendored" wp-content/plugins/modularity
+        test -f wp-content/plugins/modularity/modularity.php || { echo "Modularity restore failed"; exit 1; }
       shell: bash
 
     - name: Cleanup .npmrc
@@ -240,17 +255,18 @@ runs:
     - name: The rsync deployment to www-data user.
       uses: burnett01/rsync-deployments@796cf0d5e4b535745ce49d7429f77cf39e25ef39
       with:
-        switches: -avzrog --delete --backup --backup-dir=${{ inputs.deploy-host-backup-path }}/$GITHUB_SHA --exclude="/config" --exclude config-example --exclude wp-content/uploads --exclude wp-content/plugins/gravityforms --exclude wp-content/plugins/wp-schema-pro --exclude track-assets --exclude wp-content/plugins/volontar-wordpress --exclude wp-content/languages --exclude .htaccess --exclude security.txt --exclude wp-content/mu-plugins/local_* --exclude wp-content/fonts --exclude wp-content/plugins/modularity 
+        switches: -avzrog --delete --backup --backup-dir=${{ inputs.deploy-host-backup-path }}/$GITHUB_SHA --exclude="/config" --exclude config-example --exclude wp-content/uploads --exclude wp-content/plugins/gravityforms --exclude wp-content/plugins/wp-schema-pro --exclude track-assets --exclude wp-content/plugins/volontar-wordpress --exclude wp-content/languages --exclude .htaccess --exclude security.txt --exclude wp-content/mu-plugins/local_* --exclude wp-content/fonts --exclude wp-content/plugins/modularity
         path: .
         remote_path: ${{ inputs.deploy-host-path }}
         remote_host: ${{ inputs.deploy-host }}
         remote_user: ${{ inputs.deploy-host-user }}
         remote_key: ${{ inputs.deploy-host-user-key }}
         remote_port: ${{ inputs.deploy-port }}
+
     - name: Rsync vendored Modularity
       uses: burnett01/rsync-deployments@796cf0d5e4b535745ce49d7429f77cf39e25ef39
       with:
-        switches: -avzrog --backup --backup-dir=${{ inputs.deploy-host-backup-path }}/$GITHUB_SHA
+        switches: -avzrog --delete --backup --backup-dir=${{ inputs.deploy-host-backup-path }}/$GITHUB_SHA
         path: wp-content/plugins/modularity/
         remote_path: ${{ inputs.deploy-host-path }}/wp-content/plugins/modularity/
         remote_host: ${{ inputs.deploy-host }}
@@ -295,12 +311,13 @@ runs:
           wp nginx-helper purge-all --allow-root || true
           wp cache flush --allow-root || true
           rm -rf ${{ inputs.deploy-host-path }}/../.cache/vhosts/Jelastic/* || true
-          rm -rf ${{ inputs.deploy-host-path }}/wp-content/uploads/cache/* || true 
+          rm -rf ${{ inputs.deploy-host-path }}/wp-content/uploads/cache/* || true
           rm -rf /tmp/blade-engine-cache/* || true
         host: ${{ inputs.deploy-host }}
         username: ${{ inputs.deploy-host-user }}
         key: ${{ inputs.deploy-host-user-key }}
         port: ${{ inputs.deploy-port }}
+
     - name: Clear LS PageCache
       uses: appleboy/ssh-action@25ce8cbbcb08177468c7ff7ec5cbfa236f9341e1
       if: ${{ inputs.deploy-host-pagecache-path != '' }}
@@ -310,6 +327,7 @@ runs:
         username: ${{ inputs.deploy-host-user }}
         key: ${{ inputs.deploy-host-user-key }}
         port: ${{ inputs.deploy-port }}
+
     - name: Kill PHP
       uses: appleboy/ssh-action@25ce8cbbcb08177468c7ff7ec5cbfa236f9341e1
       if: ${{ inputs.kill-lsphp == true }}
@@ -319,6 +337,7 @@ runs:
         username: ${{ inputs.deploy-host-user }}
         key: ${{ inputs.deploy-host-user-key }}
         port: ${{ inputs.deploy-port }}
+
     - name: Ping NewRelic
       if: ${{ inputs.newrelic-app-id != '' && inputs.newrelic-api-key != '' }}
       run: |
@@ -333,6 +352,7 @@ runs:
           }
         }'
       shell: bash
+
     - name: Ping Sentry
       if: ${{ inputs.sentry-url != '' && inputs.sentry-org != '' && inputs.sentry-version != '' && inputs.sentry-api-key != '' && inputs.sentry-env != '' }}
       run: |
