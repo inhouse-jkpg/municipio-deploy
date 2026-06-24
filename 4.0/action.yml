@@ -236,11 +236,13 @@ runs:
         cp -a wp-content/plugins/modularity "$RUNNER_TEMP/modularity-vendored"
       shell: bash
       
-    - name: Build Municipio theme assets from npm
+    - name: Build Municipio theme assets
       working-directory: wp-content/themes/municipio
       run: |
-        test -f build.php || { echo "Municipio theme missing"; exit 1; }
-        php build.php --no-composer --install-npm --cleanup
+        test -f package.json || { echo "Municipio theme missing"; exit 1; }
+        npm ci --no-progress --no-audit
+        npm run build
+        php build.php --no-composer --cleanup
       shell: bash
 
     - name: Execute buildscripts in themes and plugins folders.
