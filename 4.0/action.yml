@@ -237,9 +237,10 @@ runs:
       shell: bash
       
     - name: Build Municipio theme assets from npm
+      working-directory: wp-content/themes/municipio
       run: |
-        test -f wp-content/themes/municipio/build.php || { echo "Municipio theme missing"; exit 1; }
-        php wp-content/themes/municipio/build.php --no-composer --install-npm --cleanup
+        test -f build.php || { echo "Municipio theme missing"; exit 1; }
+        php build.php --no-composer --install-npm --cleanup
       shell: bash
 
     - name: Execute buildscripts in themes and plugins folders.
